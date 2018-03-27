@@ -45,6 +45,7 @@ class Server:
                 try:
                     data = json.loads(request.decode())
                     if 'key_press' in data.keys():
+                        print("swag")
                         self.broadcast_message(request)
                     elif 'init_connection' in data.keys():
                         self.newcomer.sendall(request)

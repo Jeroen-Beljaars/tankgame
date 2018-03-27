@@ -40,6 +40,7 @@ class Client:
         print("[i] connected to server")
 
         self.player_list = {}
+        self.players = {}
 
         reciever = threading.Thread(target=self.recieve)
         reciever.start()
@@ -48,6 +49,7 @@ class Client:
 
     def state_loop(self):
         self.send()
+        self.worldpos()
 
     def send(self):
         """
@@ -66,7 +68,20 @@ class Client:
                           logic.KX_INPUT_JUST_RELEASED):
                 key_stat['key_press']['key_codes'].append((event, status))
         if len(key_stat['key_press']['key_codes']):
-            self.server.sendall(json.dumps(key_stat).encode())
+            instance = self.player_list["{}:{}".format(self.server.getsockname()[0],self.server.getsockname()[1])]
+            instance.keyboard.updateState(key_stat['key_press']['key_codes'])
+
+    def worldpos(self):
+        gobj = self.players["{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])]
+        key_stat = {
+            'key_press': {
+                'key_codes': [list(gobj.worldPosition), gobj.localOrientation.to_euler()[2]],
+                'ip': "{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])
+            }
+        }
+        self.server.sendall(json.dumps(key_stat).encode())
+        print(key_stat)
+        #player['user'].addr
 
     def recieve(self):
         while True:
@@ -100,7 +115,9 @@ class Client:
                         scene = logic.getCurrentScene()
                         spawner = scene.objects["Spawner"]
                         player = scene.addObject(object, spawner)
-                        player['user'] = user
+                        self.players[ip] = player
+
+                        #player['user'] = user
                         self.player_list[ip] = user
 
                     if 'init_connection' in state:
@@ -111,6 +128,7 @@ class Client:
                             player = scene.addObject('Tank', spawner)
                             player['user'] = user
                             self.player_list[event] = user
+                            self.players[event] = player
 
                             # Handle the rotation
                             player.localOrientation = [0, 0, state['init_connection']['objects'][event][1]]
@@ -119,8 +137,12 @@ class Client:
                             player.worldPosition = Vector(state['init_connection']['objects'][event][0])
 
                     if 'key_press' in state.keys():
-                        instance = self.player_list[state['key_press']['ip']]
-                        instance.keyboard.updateState(state['key_press']['key_codes'])
+                        instance = self.players[state['key_press']['ip']]
+                        # Handle the rotation
+                        player.localOrientation = [0, 0, state['key_press']['key_codes'][event][1]]
+
+                        # Handle the movement
+                        player.worldPosition = Vector(state['key_press']['key_codes'][event][0])
 
             except socket.error:
                 print(">>>STACKTRACE<<<")
