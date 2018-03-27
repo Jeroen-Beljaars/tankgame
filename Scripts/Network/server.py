@@ -35,7 +35,7 @@ class Server:
     def handle_client(self, client_socket):
         while True:
             try:
-                request = client_socket.recv(1024)
+                request = client_socket.recv(10024)
                 if request == b'\x1a' or request == b'':
                     self.user_addresses.pop("{}:{}".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
                     print("[-] Client {}:{} disconnected".format(client_socket.getpeername()[0],client_socket.getpeername()[1]))
@@ -45,7 +45,6 @@ class Server:
                 try:
                     data = json.loads(request.decode())
                     if 'key_press' in data.keys():
-                        print("swag")
                         self.broadcast_message(request)
                     elif 'init_connection' in data.keys():
                         self.newcomer.sendall(request)
@@ -78,7 +77,7 @@ class Server:
             if len(self.user_addresses.values()) > 1:
                 for returner in self.user_addresses.values():
                     try:
-                        returner.sendall(b'send all positions')
+                        returner.sendall(json.dumps({"send all positions": "please?"}).encode())
                     except socket.error:
                         returner.close()
                         self.user_addresses.pop("{}:{}".format(returner.getpeername[0], returner.getpeername[1]))
