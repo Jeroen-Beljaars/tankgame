@@ -7,15 +7,23 @@ import time
 # [+] Is een nieuwe connectie 
 # [-] Is een afgesloten connectie
 
+
 class Server:
     def __init__(self):
+        """ Initialize the server """
+
+        # The ip of the machine where the server is running on
         self.bind_ip = "192.168.178.88"
+
+        # The port that we use for the server
         self.bind_port = 9999
 
+        #
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((self.bind_ip, self.bind_port))
         self.server.listen(5)
-        #self.server.setblocking(False)
+        # self.server.setblocking(False)
+
         # Store the user_addresses here
         self.user_addresses = {}
 
@@ -28,23 +36,29 @@ class Server:
         listen = threading.Thread(self.listener())
         listen.start()
 
-        ping_clients = threading.Thread(target=self.ping_clients)
-        ping_clients.start()
-
-
     def handle_client(self, client_socket):
+        """
+        Every client has an own handler
+        this method listens for incoming messages from a specific client
+        """
         while True:
             try:
+                # listen for packets
                 request = client_socket.recv(10024)
+
+                # The client sometimes sends this if it disconnects.
+                # If we recieve this then close the connection and remove the user from the list
                 if request == b'\x1a' or request == b'':
                     self.user_addresses.pop("{}:{}".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
                     print("[-] Client {}:{} disconnected".format(client_socket.getpeername()[0],client_socket.getpeername()[1]))
                 else:
+                    # print the recieved message
                     print("Client: {}".format(request))
 
                 try:
+                    # Decode the json and check if it matches any of the keys below
                     data = json.loads(request.decode())
-                    if 'key_press' in data.keys():
+                    if 'position' in data.keys():
                         self.broadcast_message(request)
                     elif 'init_connection' in data.keys():
                         self.newcomer.sendall(request)
@@ -52,28 +66,37 @@ class Server:
                     pass
 
             except socket.error:
+                # Socket error usally means that the client is not connected anymore
+                # Disconnect it
                 try:
-                    print("[-] Client {} disconnected".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
                     self.user_addresses.pop("{}:{}".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
-                except:
+                    print("[-] Client {} disconnected".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
                     break
-                    pass
+                except:
+                    # If disconnecting failed then the user is allready disconnected elsewhere
+                    break
 
     def listener(self):
+        """" Listen for new incomming connections """
         while True:
             client, addr = self.server.accept()
 
-           #  if addr[0] in self.user_addresses.keys():
-           #     print("[!] Refused connection. User allready in game.")
-           #     client.close()
-           # else:
+            # if addr[0] in self.user_addresses.keys():
+            #    print("[!] Refused connection. User allready in game.")
+            #    client.close()
+            # else:
+
             print("[+] Accepted connection from {}:{}".format(addr[0], addr[1]))
             print("[+] Establishing a connection form: {}:{}".format(addr[0], addr[1]))
 
+            # add the user to the client list
             self.user_addresses["{}:{}".format(addr[0], addr[1])] = client
 
+            # save the latest newcomer so we can send the init_connection packet to the client later
             self.newcomer = client
 
+            # if there are all ready players connected request all the info from the player objects
+            # from the first player in the list
             if len(self.user_addresses.values()) > 1:
                 for returner in self.user_addresses.values():
                     try:
@@ -85,10 +108,12 @@ class Server:
 
             self.broadcast_new_connection("{}:{}".format(addr[0], addr[1]))
 
+            # start the client handler
             client_handler = threading.Thread(target=self.handle_client,args=(client,))
             client_handler.start()
 
     def broadcast_new_connection(self, ip):
+        """" If a player joins the game then broadcast it to all the clients """
         new_connection = {
             'new-connection': {
                 'ip': ip,
@@ -99,17 +124,18 @@ class Server:
         for client in self.user_addresses.values():
             client.sendall(json.dumps(new_connection).encode())
 
-    def broadcast_message(self, json):
+    def broadcast_message(self, packet):
+        """" Broadcast the message to all the clients """
         for client in self.user_addresses.values():
-            client.sendall(json)
+            client.sendall(packet)
 
     def ping_clients(self):
+        """" This pings the clients to check if they are still active """
         while True:
             print("ping")
             for client in self.user_addresses:
                 try:
                     client.sendall(b"ping")
-                    client.recv(1024)
                 except socket.error:
                     client.close()
                     self.user_addresses.pop("{}:{}".format())
