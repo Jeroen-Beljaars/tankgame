@@ -32,23 +32,30 @@ class Client:
         self.server.connect((self.server_ip, self.server_port))
         print("[i] connected to server")
 
+        self.server.setblocking(False)
+
         # Here we store the player objects (the tanks)
         # So we can move it in the scene and get the world positions
         self.players = {}
+
+        self.oldpos = []
 
     def worldpos(self):
         """" Send the worldposition of the player object to the server """
         try:
             player = self.players["{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])]
-            key_stat = {
-                'position': {
-                    'coordinates': [list(player.worldPosition), player.localOrientation.to_euler()[2]],
-                    'ip': "{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])
+            pos = [list(player.worldPosition), player.localOrientation.to_euler()[2]]
+            if self.oldpos != pos:
+                key_stat = {
+                    'position': {
+                        'coordinates': pos,
+                        'ip': "{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])
+                    }
                 }
-            }
-            self.server.sendall(json.dumps(key_stat).encode())
+                self.oldpos = [list(player.worldPosition), player.localOrientation.to_euler()[2]]
+                self.server.sendall(json.dumps(key_stat).encode())
         except:
-            pass
+            print("erro")
             # not initialized yet
 
     def movement(self, player):
