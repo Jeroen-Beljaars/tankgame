@@ -196,7 +196,7 @@ class Client:
                         }
                         self.server.sendall(json.dumps(position).encode())
         except socket.error:
-            print("Error handling the json. Line: 83")
+            pass
 
 client = Client()
 
