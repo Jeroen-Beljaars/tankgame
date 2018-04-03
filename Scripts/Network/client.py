@@ -5,6 +5,7 @@ from mathutils import Vector, Euler
 import json
 import traceback
 import re
+import requests
 
 def keyDown(key_code=events.WKEY, status=logic.KX_INPUT_ACTIVE):
     """
@@ -19,12 +20,15 @@ class Client:
     def __init__(self):
         """" Initialize the client """
 
+        # Set this to True if you run it locally and to False if you run it on a server
+        self.local = False
+
         # Here we store what player belongs to this instance of the client
         self.user_initialized = False;
         self.user = []
 
         # The IP & Port of the server
-        self.server_ip = "192.168.178.88"
+        self.server_ip = "oege.ie.hva.nl"
         self.server_port = 9999
 
         # Connect to the server
@@ -34,6 +38,12 @@ class Client:
 
         self.server.setblocking(False)
 
+        if not self.local:
+            self.ip = requests.get("http://ipecho.net/plain?").text
+        else:
+            self.ip = self.server.getsockname()[0]
+
+        self.port = self.server.getsockname()[1]
         # Here we store the player objects (the tanks)
         # So we can move it in the scene and get the world positions
         self.players = {}
@@ -43,13 +53,13 @@ class Client:
     def worldpos(self):
         """" Send the worldposition of the player object to the server """
         try:
-            player = self.players["{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])]
+            player = self.players["{}:{}".format(self.ip, self.port)]
             pos = [list(player.worldPosition), player.localOrientation.to_euler()[2]]
             if self.oldpos != pos:
                 key_stat = {
                     'position': {
                         'coordinates': pos,
-                        'ip': "{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1])
+                        'ip': "{}:{}".format(self.ip, self.port)
                     }
                 }
                 self.oldpos = [list(player.worldPosition), player.localOrientation.to_euler()[2]]
@@ -161,7 +171,7 @@ class Client:
                         (otherwise this will override the movement and the player would be stuck on one position)
                         """
                         if self.user_initialized and state['position']['ip'] \
-                                != "{}:{}".format(self.server.getsockname()[0], self.server.getsockname()[1]):
+                                != "{}:{}".format(self.ip, self.port):
                             try:
                                 # Get the object that belongs to that ip
                                 instance = self.players[state['position']['ip']]

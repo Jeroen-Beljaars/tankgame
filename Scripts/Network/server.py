@@ -2,6 +2,7 @@ import socket
 import threading
 import json
 import time
+import re
 # [i] is ene informatie bericht
 # [!] is een error of een waarschuwing
 # [+] Is een nieuwe connectie 
@@ -13,7 +14,7 @@ class Server:
         """ Initialize the server """
 
         # The ip of the machine where the server is running on
-        self.bind_ip = "192.168.178.88"
+        self.bind_ip = "oege.ie.hva.nl"
 
         # The port that we use for the server
         self.bind_port = 9999
@@ -52,16 +53,30 @@ class Server:
                     self.user_addresses.pop("{}:{}".format(client_socket.getpeername()[0], client_socket.getpeername()[1]))
                     print("[-] Client {}:{} disconnected".format(client_socket.getpeername()[0],client_socket.getpeername()[1]))
                 else:
+                    pass
                     # print the recieved message
-                    print("Client: {}".format(request))
+                    # print("Client: {}".format(request))
 
                 try:
                     # Decode the json and check if it matches any of the keys below
                     data = json.loads(request.decode())
-                    if 'position' in data.keys():
-                        self.broadcast_message(request)
-                    elif 'init_connection' in data.keys():
-                        self.newcomer.sendall(request)
+                    splitter = request.decode()
+
+                    state = re.split('(\{.*?\})(?= *\{)', splitter)
+                    accumulator = ''
+                    res = []
+                    for subs in state:
+                        accumulator += subs
+                        try:
+                            res.append(json.loads(accumulator))
+                            accumulator = ''
+                        except:
+                            pass
+                    for packet in res:
+                        if 'position' in packet.keys():
+                            self.broadcast_message(json.dumps(packet).encode())
+                        elif 'init_connection' in data.keys():
+                            self.newcomer.sendall(json.dumps(packet).encode())
                 except:
                     pass
 
@@ -103,7 +118,7 @@ class Server:
                         returner.sendall(json.dumps({"send all positions": "please?"}).encode())
                     except socket.error:
                         returner.close()
-                        self.user_addresses.pop("{}:{}".format(returner.getpeername[0], returner.getpeername[1]))
+                        self.user_addresses.pop("{}:{}".format(returner.getpeername()[0], returner.getpeername()[1]))
                     break
 
             self.broadcast_new_connection("{}:{}".format(addr[0], addr[1]))
