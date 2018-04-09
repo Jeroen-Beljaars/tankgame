@@ -75,7 +75,8 @@ class Server:
                     for packet in res:
                         if 'position' in packet.keys():
                             self.broadcast_message(json.dumps(packet).encode())
-                        elif 'init_connection' in data.keys():
+                        elif 'init_connection' in packet.keys():
+                            print(packet)
                             self.newcomer.sendall(json.dumps(packet).encode())
                 except:
                     pass
