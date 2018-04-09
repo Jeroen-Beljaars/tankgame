@@ -113,8 +113,8 @@ class Client:
             else:
                 # For every json check what kind of dict it is
                 # If it found the type handle the packet
-                for state in res:
-                    if 'new-connection' in state.keys():
+                for packet in res:
+                    if 'new-connection' in packet.keys():
                         """"
                         A new client has connected to the server
                         We spawn it on the client's game so he can see it too
@@ -122,11 +122,11 @@ class Client:
                         """
 
                         # Ip of the new client
-                        ip = state['new-connection']['ip']
+                        ip = packet['new-connection']['ip']
 
                         # What is the name of the object the client has?
                         # Might be usefull for upgrades ect..
-                        object = state['new-connection']['object']
+                        object = packet['new-connection']['object']
 
                         # Get the current scene and spawn the client in the spawner
                         scene = logic.getCurrentScene()
@@ -144,12 +144,12 @@ class Client:
                             self.user_initialized = True
 
 
-                    if 'init_connection' in state:
+                    if 'init_connection' in packet:
                         """" 
                         if a user connects to the server and there are allready other players inside the game
                         then we need to get the information about the other objects so we can spawn them in ect..
                         """
-                        for event in state['init_connection']['objects']:
+                        for event in packet['init_connection']['objects']:
                             scene = logic.getCurrentScene()
                             spawner = scene.objects["Spawner"]
                             player = scene.addObject('Tank', spawner)
@@ -158,42 +158,42 @@ class Client:
 
                             # Handle the rotation
                             # We use Eueler for this (the last number handles the Z rotation)
-                            player.localOrientation = [0, 0, state['init_connection']['objects'][event][1]]
+                            player.localOrientation = [0, 0, packet['init_connection']['objects'][event][1]]
 
                             # Change the players position to the given position
                             # We us a vecor for this
-                            player.worldPosition = Vector(state['init_connection']['objects'][event][0])
+                            player.worldPosition = Vector(packet['init_connection']['objects'][event][0])
 
-                    if 'position' in state.keys():
+                    if 'position' in packet.keys():
                         """" 
                         These packets contain the position (worldlocation & rotation) of a specific player
                         if the ip in the packet is not equal to the clients IP then apply the movement
                         (otherwise this will override the movement and the player would be stuck on one position)
                         """
-                        if self.user_initialized and state['position']['ip'] \
+                        if self.user_initialized and packet['position']['ip'] \
                                 != "{}:{}".format(self.ip, self.port):
                             try:
                                 # Get the object that belongs to that ip
-                                instance = self.players[state['position']['ip']]
+                                instance = self.players[packet['position']['ip']]
 
                                 # Handle the rotation
-                                instance.localOrientation = [0, 0, state['position']['coordinates'][1]]
+                                instance.localOrientation = [0, 0, packet['position']['coordinates'][1]]
 
                                 # Handle the movement
-                                instance.worldPosition = Vector(state['position']['coordinates'][0])
+                                instance.worldPosition = Vector(packet['position']['coordinates'][0])
                             except:
                                 # NOTE: it's possible that this packet came in before we initialized the objects
                                 # so it can probably not find the right object. So no worries about this error
                                 print("Something went wrong handling the position. Line: 150")
 
-                    if 'send all positions' in state.keys():
+                    if 'send all positions' in packet.keys():
                         """" 
                         If the server gets a new connection and there are allready players in game
                         then it will request the info about the other objects.
                         so when the client gets this packet it sends all the clients back
                         """
                         scene = logic.getCurrentScene()
-                        state = {
+                        players = {
                             gobj["ip"]: [list(gobj.worldPosition), gobj.localOrientation.to_euler()[2]] \
                             for gobj in scene.objects \
                             if gobj.name == "Tank"
@@ -201,7 +201,7 @@ class Client:
 
                         position = {
                             'init_connection': {
-                                'objects': state
+                                'objects': players
                             }
                         }
                         self.server.sendall(json.dumps(position).encode())
